@@ -5,8 +5,9 @@ import inquirer from "inquirer"
 import gradient from "gradient-string"
 import figlet from "figlet"
 import { createSpinner } from "nanospinner"
-
-const sleep = (ms = 2000) => new Promise((r) => setTimeout(r, ms))
+import fs from "fs"
+import path from "path"
+import { exit } from "process"
 
 let projectDir,
   packageName,
@@ -24,6 +25,39 @@ function rest() {
   getData()
 }
 
+async function createPackage() {
+  const spinner = createSpinner("Creating package.json...").start()
+
+  function failed() {
+    spinner.error({
+      text: "An unexpected error occurred while creating project! Please try to create project again.",
+    })
+  }
+
+  fs.readdir(projectDir, (err, files) => {
+    if (err) throw err
+
+    for (const file of files) {
+      fs.unlink(path.join(projectDir, file), (err) => {
+        if (err) throw err
+      })
+    }
+  })
+
+  const packagejson = `
+  {
+    "name": "${packageName}",
+    "version": "${version}",
+  }
+  `
+
+  fs.appendFile(`${projectDir}/package.json`, packagejson, function (err) {
+    failed()
+  })
+
+  spinner.success()
+}
+
 async function getData() {
   const answers1 = await inquirer.prompt({
     name: "project_dir",
@@ -32,6 +66,32 @@ async function getData() {
   })
 
   projectDir = answers1.project_dir
+
+  if (fs.existsSync(projectDir)) {
+    if (fs.readdirSync(projectDir).length > 0) {
+      const answerthreehalf = await inquirer.prompt({
+        name: "empty_dir",
+        type: "confirm",
+        message:
+          "Directory seems not to be empty. Do you want to delete these files?",
+        default: false,
+      })
+
+      if (answerthreehalf.empty_dir === false) {
+        exit(0)
+      }
+    }
+  } else {
+    try {
+      fs.mkdirSync(projectDir)
+    } catch (e) {
+      console.log(
+        chalk.bgRed(
+          "An unexpected error occurred! Please try creating project again."
+        )
+      )
+    }
+  }
 
   const answers2 = await inquirer.prompt({
     name: "package_name",
@@ -95,6 +155,8 @@ async function getData() {
   })
 
   repository = answers8.repository
+
+  createPackage()
 }
 
 async function start() {
