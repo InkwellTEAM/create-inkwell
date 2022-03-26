@@ -12,6 +12,7 @@ import { exit } from "process"
 let projectDir,
   packageName,
   version,
+  description,
   author,
   keywords = [],
   license,
@@ -25,37 +26,36 @@ function rest() {
   getData()
 }
 
-async function createPackage() {
-  const spinner = createSpinner("Creating package.json...").start()
+async function createPackageJSON() {
+  const keywordsFinal = keywords.map((keyword) => `\n    "${keyword}"`)
 
-  function failed() {
-    spinner.error({
-      text: "An unexpected error occurred while creating project! Please try to create project again.",
-    })
+  const packagejson = `
+{
+  "name": "${packageName}",
+  "version": "${version}",
+  "description": "${description}",
+  "author": "${author}",
+  "keywords": [${keywordsFinal}\n  ],
+  "license": "${license}",
+  "main": "${main}",
+  "repository": {
+    "type": "git",
+    "url": "${repository}"
   }
+}
+  `
 
-  fs.readdir(projectDir, (err, files) => {
+  await fs.appendFileSync(`${projectDir}/package.json`, packagejson)
+}
+
+async function clearFolder() {
+  await fs.readdir(projectDir, (err, files) => {
     if (err) throw err
 
     for (const file of files) {
-      fs.unlink(path.join(projectDir, file), (err) => {
-        if (err) throw err
-      })
+      fs.unlinkSync(path.join(projectDir, file))
     }
   })
-
-  const packagejson = `
-  {
-    "name": "${packageName}",
-    "version": "${version}",
-  }
-  `
-
-  fs.appendFile(`${projectDir}/package.json`, packagejson, function (err) {
-    failed()
-  })
-
-  spinner.success()
 }
 
 async function getData() {
@@ -79,6 +79,8 @@ async function getData() {
 
       if (answerthreehalf.empty_dir === false) {
         exit(0)
+      } else {
+        clearFolder()
       }
     }
   } else {
@@ -110,22 +112,30 @@ async function getData() {
   version = answers3.version
 
   const answers4 = await inquirer.prompt({
+    name: "description",
+    type: "input",
+    message: "Description",
+  })
+
+  description = answers4.description
+
+  const answers5 = await inquirer.prompt({
     name: "keywords",
     type: "input",
     message: "Keywords",
   })
 
-  keywords = answers4.keywords.split(/[ ,]+/)
+  keywords = answers5.keywords.split(/[ ,]+/)
 
-  const answers5 = await inquirer.prompt({
+  const answers6 = await inquirer.prompt({
     name: "author",
     type: "input",
     message: "Author",
   })
 
-  author = answers5.author
+  author = answers6.author
 
-  const answers6 = await inquirer.prompt({
+  const answers7 = await inquirer.prompt({
     name: "license",
     type: "list",
     message: "License",
@@ -135,9 +145,9 @@ async function getData() {
     },
   })
 
-  license = answers6.license
+  license = answers7.license
 
-  const answers7 = await inquirer.prompt({
+  const answers8 = await inquirer.prompt({
     name: "main",
     type: "input",
     message: "Main",
@@ -146,17 +156,19 @@ async function getData() {
     },
   })
 
-  main = answers7.main
+  main = answers8.main
 
-  const answers8 = await inquirer.prompt({
+  const answers9 = await inquirer.prompt({
     name: "repository",
     type: "input",
-    message: "Link to repository",
+    message: "Link to your git repository",
   })
 
-  repository = answers8.repository
+  repository = answers9.repository
 
-  createPackage()
+  const spinner = createSpinner("Creating package.json...").start()
+  await createPackageJSON()
+  spinner.success()
 }
 
 async function start() {
